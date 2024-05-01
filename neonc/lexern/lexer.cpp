@@ -15,7 +15,9 @@ std::map<std::string, TokenType> symbols = {
     {"$", TokenType::DOLLAR},  {"(", TokenType::L_PAREN},
     {")", TokenType::R_PAREN}, {"[", TokenType::L_BRACK},
     {"]", TokenType::R_BRACK}, {",", TokenType::COMMA},
-    {"{", TokenType::L_BRACK}, {"}", TokenType::R_BRACE}};
+    {"{", TokenType::L_BRACE}, {"}", TokenType::R_BRACE},
+    {"#", TokenType::HASH}
+};
 
 Lexer::Lexer(const char *source) {
   this->source = (std::string(source) + " ");
@@ -105,7 +107,7 @@ Token Lexer::parse_symbol() {
 char Lexer::peek(int by) { return this->source[this->offset + by]; }
 
 void Lexer::skip_ws() {
-  while (this->current_char == ' ' || this->current_char == '\n') {
+  while (this->current_char == ' ' || this->current_char == '\n' || this->current_char == '\t') {
     this->advance();
   }
 }
@@ -119,6 +121,10 @@ Token *Lexer::next() {
   this->skip_ws();
   if (this->current_char == 0) {
     return resultptr;
+  } else if (this->current_char == '/' && this->peek() == '/') {
+    while (this->current_char != '\n' && this->offset < this->size) {
+      this->advance();
+    }
   } else if (this->current_char == '0' && this->peek() == 'x' &&
              std::isxdigit(this->peek(2))) {
     resultptr = new Token(this->parse_xdigit());
@@ -137,10 +143,13 @@ Token *Lexer::next() {
       Token temp = this->parse_digit();
       temp.value = std::string(1, pon) + temp.value;
       resultptr = new Token(temp);
+    } else {
+      resultptr = new Token(
+          {.type = TokenType::OPERATOR, .value = std::string(1, pon)});
     }
   } else if (this->current_char == '"') {
     resultptr = new Token(this->parse_string());
-  } else if (std::isalnum(this->current_char)) {
+  } else if (std::isalnum(this->current_char) || this->current_char == '_') {
     resultptr = new Token(this->parse_identifier());
   } else if (operators.find(std::string(1, this->current_char)) !=
              operators.end()) {
@@ -155,7 +164,7 @@ Token *Lexer::next() {
   }
 
   if (resultptr) {
-    std::cout << resultptr->type << ": " << resultptr->value << std::endl;
+    //std::cout << resultptr->type << ": " << resultptr->value << std::endl;
   }
 
   return resultptr;

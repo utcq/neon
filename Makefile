@@ -16,3 +16,8 @@ build:
 
 test:
 	@./$(EXEC)
+
+assemble:
+	as std/mem.s -o mem.o
+	as .neon_tmp/mod_n0.s -o modn0.o
+	ld modn0.o mem.o -o modn0

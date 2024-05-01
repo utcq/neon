@@ -18,7 +18,8 @@ enum TokenType {
     R_BRACK,
     L_BRACE,
     R_BRACE,
-    COMMA
+    COMMA,
+    HASH
 };
 
 struct Token {

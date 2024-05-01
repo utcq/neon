@@ -3,9 +3,10 @@
 #include <string>
 #include <vector>
 
-enum ValType { INT };
-enum OpType { ADD };
-enum StatType { CALL, ASSN, RET };
+
+enum ValType { INT, OBJECT, STR };
+enum OpType { ADD, SUB };
+enum StatType { CALL, ASSN, RET, ASM };
 
 struct Value {
   ValType type;
@@ -16,7 +17,7 @@ struct Expression {
   Value *value;
   Expression *first;
   Expression *second;
-  OpType *oper;
+  OpType oper;
 };
 
 struct CallStat {
@@ -33,11 +34,17 @@ struct RetStat {
   Expression *value;
 };
 
+struct AsmStat {
+  std::string code;
+};
+
 struct Statement {
-  StatType type;
+  StatType type = (StatType)(-1);
   CallStat *callst;
   AssnStat *assnst;
   RetStat *retst;
+  AsmStat *asmst;
+
 };
 
 struct Parameter {
@@ -45,15 +52,22 @@ struct Parameter {
   std::string type;
 };
 
+struct ProcSetup {
+  uint src_id = 0;
+  bool pubscope=false;
+};
+
 struct Procedure {
     std::string name;
     std::string type;
     std::vector<Parameter> parameters;
     std::vector<Statement> statements;
+    ProcSetup setup;
 };
 
 struct Ast {
     std::vector<Procedure> procedures;
+    std::vector<std::string> connections;
 };
 
 #endif

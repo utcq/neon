@@ -1,19 +1,10 @@
-#include "lexern/lexer.h"
-#include "parsern/parser.h"
-#include <fstream>
+#include "process.h"
+#include "compn/comp.h"
 
 int main(void) {
-  std::ifstream file("style/style0x1.ne");
-  if (file) {
-    file.seekg(0, std::ios::end);
-    int len = file.tellg();
-    file.seekg(0, std::ios::beg);
-    char *buffer = (char *)malloc(len);
-    file.read(buffer, len);
-
-    Lexer *lexer = new Lexer(buffer);
-    Parser *parser = new Parser(lexer);
-  }
+  std::string file = "style/style0x1.ne";
+  Parser *parser = process_file(file);
+  Compiler *compiler = new Compiler(&parser->ast);
 
   return 0;
 }
