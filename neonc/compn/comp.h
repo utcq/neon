@@ -35,6 +35,7 @@ struct Scope {
   std::vector<Procedure> procs;
   std::vector<Var*> local_vars;
   std::vector<Var*> global_vars;
+  std::vector<Definition> ct_definitions;
   uint proc_heap_size;
 };
 
@@ -59,6 +60,9 @@ public:
   void call_prologue();
   void call(std::string name);
   void call_epilogue();
+
+  void lea(Pointer *val, std::string reg);
+  void push(std::string reg);
 
   void new_global(std::string name);
 
@@ -86,9 +90,10 @@ private:
   void as_statement(Statement stat);
   void as_return(RetStat *stat);
   void as_asmk(AsmStat *stat);
+  void as_call(CallStat *stat);
   std::string as_expression(Expression *exp);
   std::string as_operation(OpType op, std::string type1, std::string type2);
-  std::string check_func(std::string name);
+  Procedure check_func(std::string name);
 
   void as_connect(std::string path);
 

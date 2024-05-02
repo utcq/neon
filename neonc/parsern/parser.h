@@ -15,6 +15,7 @@ private:
   bool check(std::string value, TokenType type);
   void next();
   void advance(int by = 1);
+  Token *peek(int by = 1);
   std::vector<Token*> between(TokenType type1, TokenType type2, std::vector<Token*> scope={});
 
   void parse_proc();
@@ -23,6 +24,8 @@ private:
   void parse_setup();
   void parse_opt();
   void parse_conn();
+  void parse_ctdef();
+  Statement parse_call();
   Statement parse_return();
   Statement parse_asmk();
   Expression *parse_expression();

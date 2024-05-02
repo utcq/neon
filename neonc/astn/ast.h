@@ -22,7 +22,7 @@ struct Expression {
 
 struct CallStat {
   std::string name;
-  std::vector<Expression> arguments;
+  std::vector<Expression*> arguments;
 };
 
 struct AssnStat {
@@ -44,7 +44,6 @@ struct Statement {
   AssnStat *assnst;
   RetStat *retst;
   AsmStat *asmst;
-
 };
 
 struct Parameter {
@@ -65,9 +64,15 @@ struct Procedure {
     ProcSetup setup;
 };
 
+struct Definition {
+  std::string name;
+  std::string value;
+};
+
 struct Ast {
     std::vector<Procedure> procedures;
     std::vector<std::string> connections;
+    std::vector<Definition> ct_definitions;
 };
 
 #endif

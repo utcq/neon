@@ -41,7 +41,7 @@ void Writer::call(std::string name) {
 }
 
 void Writer::call_epilogue() {
-  this->asm_text << "\tpopq %rbp\n" 
+  this->asm_text << "\tpopq %rbp\n"
                  << "\tpopq %rax\n";
 }
 
@@ -78,6 +78,15 @@ void Writer::add(std::string reg_src, std::string reg_dst) {
   this->asm_text << "\taddq %" << reg_src << ", %" << reg_dst << "\n";
 }
 
+void Writer::lea(Pointer *pointer, std::string reg) {
+  this->asm_text << "\tleaq " << (pointer->offset) << "(%" << pointer->reg
+                 << "), %" << reg << "\n";
+}
+
+void Writer::push(std::string reg) {
+  this->asm_text << "\tpushq %" << reg << "\n";
+}
+
 int Writer::label(std::string name) {
   this->asm_text << name << ":\n";
   int beg_pos = this->get_txt_pos();
@@ -89,7 +98,9 @@ int Writer::get_txt_pos() { return (int)(this->asm_text.tellp()); }
 
 void Writer::prologue(int pos, uint heap_size) {
   int cur = this->get_txt_pos();
-  std::string heap_val = std::string(6 - std::to_string(heap_size).length(), '0') + std::to_string(heap_size);
+  std::string heap_val =
+      std::string(6 - std::to_string(heap_size).length(), '0') +
+      std::to_string(heap_size);
   this->asm_text.seekp(pos);
   this->asm_text << "\tpopq %rbp\n"
                  << "\tmovq $" << heap_val << ", %rsi\n"
@@ -102,12 +113,13 @@ void Writer::epilogue() {
                  << "\tret\n\n\n";
 }
 
-void small_replace(std::string& str, const std::string& from, const std::string& to) {
-    size_t start = 0;
-    while ((start = str.find(from, start)) != std::string::npos) {
-        str.replace(start, from.length(), to);
-        start += to.length();
-    }
+void small_replace(std::string &str, const std::string &from,
+                   const std::string &to) {
+  size_t start = 0;
+  while ((start = str.find(from, start)) != std::string::npos) {
+    str.replace(start, from.length(), to);
+    start += to.length();
+  }
 }
 
 void Writer::freewrite(std::string code) {

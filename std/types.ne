@@ -1,3 +1,6 @@
+#ct_def __primitive_int_bytesize 4
+#ct_def __primitive_i64_bytesize 8
+
 proc [int] __primitive_int_int_add($int a, $int b) {
     #opt pub
     %asm "movl {a}, %edi";
@@ -22,3 +25,4 @@ proc [i64] __primitive_i64_i64_add($i64 a, $i64 b) {
     %asm "subq %rdi, %rsi";
     %ret;
 }
+

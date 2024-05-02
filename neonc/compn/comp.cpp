@@ -21,16 +21,16 @@ Compiler::Compiler(Ast *ast_ref, uint tmp_obj_n, Scope *pscope) {
   if (pscope) {
     this->scope = pscope;
   } else {
-    this->scope = new Scope({{},{},{},0});
+    this->scope = new Scope({{},{},{},{},0});
   }
   this->emit_asm();
 }
 
 uint Compiler::resolve_size(std::string name) {
-  if (name == "int") {
-    return 4;
-  } else if (name == "i64") {
-    return 8;
+  for (Definition def : this->scope->ct_definitions) {
+    if (def.name == "__primitive_"+name+"_bytesize") {
+      return std::stol(def.value);
+    }
   }
   return 8;
 }
@@ -42,13 +42,13 @@ Var *Compiler::resolve_object(std::string name) {
   throw std::invalid_argument("Cannot find object: " + name);
 }
 
-std::string Compiler::check_func(std::string name) {
+Procedure Compiler::check_func(std::string name) {
   for (Procedure procx : this->scope->procs) {
     if (procx.name == name) {
       if (procx.setup.src_id != this->src_id && !procx.setup.pubscope) {
         throw std::invalid_argument("Function: " + name + " is private");
       }
-      return procx.type;
+      return procx;
     }
   }
   throw std::invalid_argument("Cannot find function: " + name);
@@ -61,26 +61,32 @@ std::string Compiler::as_operation(OpType op, std::string type1, std::string typ
   switch (op) {
     case OpType::ADD: {
       fn_name = fn_name + "_add";
-      type = this->check_func(fn_name);
+      type = this->check_func(fn_name).type;
       //this->writer->add("rdi", "rsi");
       break;
     } case OpType::SUB: {
       fn_name = fn_name + "_sub";
-      type = this->check_func(fn_name);
+      type = this->check_func(fn_name).type;
       break;
     }
 
     default: {return type;}
   }
 
-  this->writer->call_prologue();
-  this->writer->freewrite("movl %edi, (%rax)");
-  this->writer->freewrite("leaq (%rax), %rdx");
-  this->writer->freewrite("pushq %rdx");
+  uint type_size = this->resolve_size(type);
 
-  this->writer->freewrite("movl %esi, 4(%rax)");
+  this->writer->call_prologue();
+  this->writer->move("rdi", new Pointer({.reg="rax",.offset=0}),type_size);
+  //this->writer->freewrite("leaq (%rax), %rdx");
+  this->writer->lea(new Pointer{.reg="rax", .offset=0}, "rdx");
+  //this->writer->freewrite("pushq %rdx");
+  this->writer->push("rdx");
+
+  this->writer->move("rsi", new Pointer({.reg="rax",.offset=4}),type_size);
   this->writer->freewrite("leaq 4(%rax), %rdx");
-  this->writer->freewrite("pushq %rdx");
+  //this->writer->lea(new Pointer{.reg="rax", .offset=4}, "rdx");
+  //this->writer->freewrite("pushq %rdx");
+  this->writer->push("rdx");
   
   this->writer->call("nproc_" + fn_name);
   this->writer->call_epilogue();
@@ -144,6 +150,34 @@ void Compiler::as_asmk(AsmStat *stat) {
   this->writer->freewrite(coden);
 }
 
+void Compiler::as_call(CallStat *stat) {
+  Procedure proc = this->check_func(stat->name);
+  uint size=0;
+
+  for (Parameter param : proc.parameters) {
+    size += this->resolve_size(param.type);
+  }
+
+  this->writer->call_prologue();
+
+  this->writer->freewrite("movq $"+std::to_string(size)+", %rsi");
+  this->writer->call("halloc");
+  uint heap_offset=0;
+  for (Expression *arg : stat->arguments) {
+      std::string type = this->as_expression(arg);
+      uint type_size = this->resolve_size(type);
+
+      this->writer->move("rsi", new Pointer({.reg="rax",.offset=heap_offset}),type_size);
+      this->writer->lea(new Pointer({.reg="rax",.offset=heap_offset}), "rdx");
+      this->writer->push("rdx");
+
+      heap_offset+=type_size;
+  }
+  this->writer->call("nproc_"+stat->name);
+
+  this->writer->call_epilogue();
+}
+
 void Compiler::as_statement(Statement stat) {
   switch (stat.type) {
     case StatType::RET: {
@@ -152,6 +186,10 @@ void Compiler::as_statement(Statement stat) {
     }
     case StatType::ASM: {
       this->as_asmk(stat.asmst);
+      break;
+    }
+    case StatType::CALL: {
+      this->as_call(stat.callst);
       break;
     }
     default: {}
@@ -209,6 +247,10 @@ void Compiler::as_connect(std::string path) {
 }
 
 void Compiler::emit_asm() {
+  for (Definition def : this->ast->ct_definitions) {
+    this->scope->ct_definitions.push_back(def);
+  }
+
   for (std::string conn : this->ast->connections) {
     this->as_connect(conn);
   }

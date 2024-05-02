@@ -1,10 +1,11 @@
 #conn "std/types.ne"
 
-proc [i64] add($i64 a, $i64 b) {
+proc [int] add($int a, $int b) {
     %ret (a + b);
 }
 
 proc[int] main() {
     #opt pub
+    add(5,2);
     %ret (1-1);
 }

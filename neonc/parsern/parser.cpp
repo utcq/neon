@@ -1,4 +1,5 @@
 #include "parser.h"
+#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
@@ -43,6 +44,8 @@ bool Parser::check(std::string value, TokenType type) {
   return (this->current_token->type == type &&
           (this->current_token->value == value || value.empty()));
 }
+
+Token *Parser::peek(int by) { return (this->tokens.at(this->index + by)); }
 
 std::vector<Token *> scoped_between(TokenType type1, TokenType type2,
                                     std::vector<Token *> scope) {
@@ -144,8 +147,11 @@ void Parser::parse_proc() {
       statements.push_back(stat);
     }
   }
-  this->ast.procedures.push_back(
-      {.name = name, .type = type, .parameters = parameters, .statements = statements, .setup=procsetup});
+  this->ast.procedures.push_back({.name = name,
+                                  .type = type,
+                                  .parameters = parameters,
+                                  .statements = statements,
+                                  .setup = procsetup});
 }
 
 OpType parse_operator(char oper) {
@@ -239,9 +245,9 @@ Statement Parser::parse_return() {
 Statement Parser::parse_asmk() {
   AsmStat *asmstat = new AsmStat();
   Expression *value = this->parse_expression();
-  assert (value->value && value->value->type == ValType::STR);
+  assert(value->value && value->value->type == ValType::STR);
   asmstat->code = value->value->value;
-  return {.type = StatType::ASM, .asmst=asmstat};
+  return {.type = StatType::ASM, .asmst = asmstat};
 }
 
 Statement Parser::parse_keyword() {
@@ -266,22 +272,59 @@ void Parser::parse_conn() {
   this->ast.connections.push_back(filepath);
 }
 
+void Parser::parse_ctdef() {
+  std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+  std::string val = this->eat("")->value;
+  this->ast.ct_definitions.push_back({.name = name, .value = val});
+}
+
 void Parser::parse_setup() {
   std::string na = this->eat("", TokenType::IDENTIFIER)->value;
   if (na == "opt") {
     this->parse_opt();
   } else if (na == "conn") {
     this->parse_conn();
+  } else if (na == "ct_def") {
+    this->parse_ctdef();
   }
+}
+
+Statement Parser::parse_call() {
+  std::vector<Expression *> args;
+  std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+  std::vector<Token *> tokens =
+      this->between(TokenType::L_PAREN, TokenType::R_PAREN);
+  std::vector<Token*> ctoks;
+  for (Token *tok : tokens) {
+    if (tok->type == TokenType::COMMA) {
+      Expression *exp = parse_exp_term(ctoks);
+      args.push_back(
+        exp
+      );
+      ctoks = {};
+    } else {
+      ctoks.push_back(
+        tok
+      );
+    }
+  }
+  if (!ctoks.empty()) {
+    args.push_back(parse_exp_term(ctoks));
+  }
+  this->eat("",TokenType::SEMICOLON);
+  return {.type=StatType::CALL, .callst=new CallStat({.name=name, .arguments=args})};
 }
 
 Statement Parser::parse_statement() {
   if (this->check("%", TokenType::OPERATOR)) {
     this->eat();
     return this->parse_keyword();
-  } else if(this->check("#", TokenType::HASH)) {
+  } else if (this->check("#", TokenType::HASH)) {
     this->eat();
     this->parse_setup();
+  } else if (this->check("", TokenType::IDENTIFIER) &&
+             this->peek()->type == TokenType::L_PAREN) {
+    return this->parse_call();
   } else {
     throw std::invalid_argument("Cannot parse: " + this->current_token->value);
   }
@@ -291,12 +334,10 @@ Statement Parser::parse_statement() {
 void Parser::next() {
   if (this->check("proc", TokenType::IDENTIFIER)) {
     this->parse_proc();
-  } 
-  else if (this->check("#", TokenType::HASH)) {
+  } else if (this->check("#", TokenType::HASH)) {
     this->eat();
     this->parse_setup();
-  }
-  else {
+  } else {
     throw std::invalid_argument("Cannot parse: " + this->current_token->value);
   }
 }
