@@ -28,6 +28,7 @@ private:
   Statement parse_call();
   Statement parse_return();
   Statement parse_asmk();
+  Statement parse_assign();
   Expression *parse_expression();
 
   ProcSetup procsetup;

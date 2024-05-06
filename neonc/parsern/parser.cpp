@@ -1,5 +1,4 @@
 #include "parser.h"
-#include <algorithm>
 #include <cassert>
 #include <iostream>
 #include <stdexcept>
@@ -176,6 +175,10 @@ ValType parse_type(Token *token) {
 
 Expression *parse_exp_term(std::vector<Token *> tokens) {
   Expression *exp = new Expression();
+  //if (tokens.at(0)->type == TokenType::IDENTIFIER && tokens.at(1)->type == TokenType::L_PAREN) {
+  //  Value *value = new Value();
+  //  value->type = ValType::PCALL;
+  //}
   if (tokens.size() == 1) {
     Value *value = new Value();
     value->type = parse_type(tokens.at(0));
@@ -294,25 +297,31 @@ Statement Parser::parse_call() {
   std::string name = this->eat("", TokenType::IDENTIFIER)->value;
   std::vector<Token *> tokens =
       this->between(TokenType::L_PAREN, TokenType::R_PAREN);
-  std::vector<Token*> ctoks;
+  std::vector<Token *> ctoks;
   for (Token *tok : tokens) {
     if (tok->type == TokenType::COMMA) {
       Expression *exp = parse_exp_term(ctoks);
-      args.push_back(
-        exp
-      );
+      args.push_back(exp);
       ctoks = {};
     } else {
-      ctoks.push_back(
-        tok
-      );
+      ctoks.push_back(tok);
     }
   }
   if (!ctoks.empty()) {
     args.push_back(parse_exp_term(ctoks));
   }
-  this->eat("",TokenType::SEMICOLON);
-  return {.type=StatType::CALL, .callst=new CallStat({.name=name, .arguments=args})};
+  if (this->check(";", TokenType::SEMICOLON)) {this->eat("", TokenType::SEMICOLON);}
+  return {.type = StatType::CALL,
+          .callst = new CallStat({.name = name, .arguments = args})};
+}
+
+Statement Parser::parse_assign() {
+  this->eat("$", TokenType::DOLLAR);
+  std::string type = this->eat("", TokenType::IDENTIFIER)->value;
+  std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+  this->eat("=", TokenType::ASSIGN);
+  Expression *exp = this->parse_expression();
+  
 }
 
 Statement Parser::parse_statement() {
@@ -325,6 +334,9 @@ Statement Parser::parse_statement() {
   } else if (this->check("", TokenType::IDENTIFIER) &&
              this->peek()->type == TokenType::L_PAREN) {
     return this->parse_call();
+  } else if (this->check("$", TokenType::DOLLAR) &&
+             this->peek()->type == TokenType::IDENTIFIER) {
+    this->parse_assign();
   } else {
     throw std::invalid_argument("Cannot parse: " + this->current_token->value);
   }

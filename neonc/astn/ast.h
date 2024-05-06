@@ -3,14 +3,16 @@
 #include <string>
 #include <vector>
 
+struct Statement;
 
-enum ValType { INT, OBJECT, STR };
+enum ValType { INT, OBJECT, STR, PCALL };
 enum OpType { ADD, SUB };
 enum StatType { CALL, ASSN, RET, ASM };
 
 struct Value {
   ValType type;
   std::string value;
+  Statement *stat;
 };
 
 struct Expression {
