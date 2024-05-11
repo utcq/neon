@@ -2,7 +2,7 @@
 #include "compn/comp.h"
 
 int main(void) {
-  std::string file = "style/style0xT.ne"; // C_Test
+  std::string file = "style/style0xT.ne"; // Test
   Parser *parser = process_file(file);
   Compiler *compiler = new Compiler(&parser->ast);
 

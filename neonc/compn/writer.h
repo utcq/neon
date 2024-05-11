@@ -41,6 +41,8 @@ public:
   void move(std::string dst_register, Pointer *src_ptr, uint size);
   void move(std::string dst_register, std::string src_label, uint size);
 
+  void xorr(std::string dst_register, std::string src_register);
+
   void ret();
 
   void pop(std::string dst_register);

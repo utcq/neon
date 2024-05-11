@@ -131,6 +131,10 @@ void Writer::move(std::string dst_register, Pointer *src_ptr, uint size) {
                  << src_ptr->reg << std::showpos << src_ptr->offset << "]\n";
 }
 
+void Writer::xorr(std::string dst_register, std::string src_register) {
+  this->asm_text << "\txor " << dst_register << ", " << src_register << "\n";
+}
+
 void Writer::pop(std::string dst_register) {
   this->asm_text << "\tpop " << dst_register << "\n";
 }

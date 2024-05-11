@@ -27,7 +27,7 @@ public:
   uint resolve_size(std::string type);
   Var *resolve_var(std::string name);
   std::string check_def(std::string name);
-  Procedure *resolve_proc(std::string name);
+  Procedure *resolve_proc(std::string name, bool mand=true);
 
   uint emit_binop(OpType oper, uint size1, uint size2);
   uint emit_expression(Expression *exp, bool first = true);

@@ -1,6 +1,8 @@
 .intel_syntax noprefix
 .global _start
 
+.extern main
+
 .section .text
 
 _start:

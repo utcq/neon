@@ -44,18 +44,21 @@ Var *Compiler::resolve_var(std::string name) {
   throw std::runtime_error("Cannot find variable: " + name);
 }
 
-Procedure *Compiler::resolve_proc(std::string name) {
+Procedure *Compiler::resolve_proc(std::string name, bool mand) {
   for (Procedure proc : this->scope->procs) {
     if (proc.name == name) {
       if (proc.setup.src_id != this->mod_id &&
           std::find(proc.setup.specifiers.begin(), proc.setup.specifiers.end(),
                     "public") == proc.setup.specifiers.end()) {
-                      throw std::runtime_error("Cannot access private procedure: " + name);
+        throw std::runtime_error("Cannot access private procedure: " + name);
       }
       return new Procedure(proc);
     }
   }
-  throw std::runtime_error("Cannot find procedure: " + name);
+  if (mand) {
+    throw std::runtime_error("Cannot find procedure: " + name);
+  }
+  return nullptr;
 }
 
 uint Compiler::resolve_size(std::string type) {
@@ -175,6 +178,8 @@ uint Compiler::emit_call(CallStat *stat) {
     uint size = this->emit_expression(stat->arguments[i - 1]);
     this->writer->move(regs_ord[i - 1], RAX);
   }
+  this->writer->xorr(
+      RAX, RAX); // TODO: This works only when XMM registers aren't being used
   this->writer->call(stat->name);
   return this->resolve_size(proc->type);
 }
@@ -231,6 +236,9 @@ void Compiler::emit_statement(Statement *stat) {
 
 void Compiler::emit_procedure(Procedure *proc) {
   proc->setup.src_id = this->mod_id;
+  if (this->resolve_proc(proc->name, false) != nullptr) {
+    throw std::runtime_error("Procedure redefinition: " + proc->name);
+  }
   this->scope->procs.push_back(*proc);
   this->scope->vars.clear();
   this->scope->stack_size = 0;
