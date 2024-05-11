@@ -8,6 +8,7 @@ enum TokenType {
     INTEGER,
     IDENTIFIER,
     STRING,
+    CHAR,
     OPERATOR,
     ASSIGN,
     SEMICOLON,
@@ -19,7 +20,8 @@ enum TokenType {
     L_BRACE,
     R_BRACE,
     COMMA,
-    HASH
+    HASH,
+    DOT
 };
 
 struct Token {

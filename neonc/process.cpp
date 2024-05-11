@@ -2,6 +2,7 @@
 #include "lexern/lexer.h"
 #include "parsern/parser.h"
 
+#include <cstring>
 #include <fstream>
 #include <stdexcept>
 
@@ -14,9 +15,12 @@ Parser *process_file(std::string path) {
     char *buffer = (char *)malloc(len);
     file.read(buffer, len);
 
-    Lexer *lexer = new Lexer(buffer);
-    Parser *parser = new Parser(lexer);
+    std::string xty = std::string(buffer, len); // Workaround for read problems
+    const char *buff = xty.c_str();
+
+    Lexer *lexer = new Lexer(buff);
+    Parser *parser = new Parser(lexer,path);
     return parser;
   }
-  throw std::invalid_argument("Missing file: " + path);
+  throw std::runtime_error("Missing file: " + path);
 }

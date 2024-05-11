@@ -22,6 +22,7 @@ private:
   Token parse_identifier();
   Token parse_operator();
   Token parse_string();
+  Token parse_char();
   Token parse_symbol();
 
   std::string source;

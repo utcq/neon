@@ -1,28 +1,5 @@
-#ct_def __primitive_int_bytesize 4
-#ct_def __primitive_i64_bytesize 8
-
-proc [int] __primitive_int_int_add($int a, $int b) {
-    #opt pub
-    %asm "movl {a}, %edi";
-    %asm "movl {b}, %esi";
-    %asm "addq %rdi, %rsi";
-    %ret;
-}
-
-proc [int] __primitive_int_int_sub($int a, $int b) {
-    #opt pub
-    %asm "movl {a}, %edi";
-    %asm "movl {b}, %esi";
-    %asm "subq %rdi, %rsi";
-    %ret;
-}
-
-
-proc [i64] __primitive_i64_i64_add($i64 a, $i64 b) {
-    #opt pub
-    %asm "movq {a}, %rdi";
-    %asm "movq {b}, %rsi";
-    %asm "subq %rdi, %rsi";
-    %ret;
-}
-
+#define __SIZE_INT 4
+#define __SIZE_VOID 0
+#define __SIZE_U64 8
+#define __SIZE_CHAR 1
+#define __SIZE_STR 8

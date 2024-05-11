@@ -1,9 +1,10 @@
-.section .text
+.intel_syntax noprefix
 .global _start
 
-_start:
-    call nproc_main
+.section .text
 
-    movq $0x00, %rdi
-    movq $0x3C, %rax
-    syscall
+_start:
+	call main
+	mov rax, +60
+	xor rdi, rdi
+	syscall

@@ -1,6 +1,5 @@
 #include "lexer.h"
 #include <cctype>
-#include <iostream>
 #include <map>
 #include <set>
 #include <stdexcept>
@@ -16,8 +15,7 @@ std::map<std::string, TokenType> symbols = {
     {")", TokenType::R_PAREN}, {"[", TokenType::L_BRACK},
     {"]", TokenType::R_BRACK}, {",", TokenType::COMMA},
     {"{", TokenType::L_BRACE}, {"}", TokenType::R_BRACE},
-    {"#", TokenType::HASH}
-};
+    {"#", TokenType::HASH}, {".", TokenType::DOT}};
 
 Lexer::Lexer(const char *source) {
   this->source = (std::string(source) + " ");
@@ -91,6 +89,20 @@ Token Lexer::parse_string() {
   return {.type = TokenType::STRING, .value = value};
 }
 
+Token Lexer::parse_char() {
+  std::string value;
+  this->advance();
+  while (this->current_char != '\'') {
+    value.push_back(this->current_char);
+    this->advance();
+  }
+  this->advance();
+  if (value == "\\n") { value = std::to_string('\n');}
+  else if (value == "\\0") { value = std::to_string('\0');}
+  else { value = std::to_string((int)value.at(0)); }
+  return {.type = TokenType::CHAR, .value = value};
+}
+
 Token Lexer::parse_symbol() {
   std::string value;
   value.push_back(this->current_char);
@@ -107,7 +119,8 @@ Token Lexer::parse_symbol() {
 char Lexer::peek(int by) { return this->source[this->offset + by]; }
 
 void Lexer::skip_ws() {
-  while (this->current_char == ' ' || this->current_char == '\n' || this->current_char == '\t') {
+  while (this->current_char == ' ' || this->current_char == '\n' ||
+         this->current_char == '\t') {
     this->advance();
   }
 }
@@ -147,6 +160,8 @@ Token *Lexer::next() {
       resultptr = new Token(
           {.type = TokenType::OPERATOR, .value = std::string(1, pon)});
     }
+  } else if (this->current_char == '\'') {
+    resultptr = new Token(this->parse_char());
   } else if (this->current_char == '"') {
     resultptr = new Token(this->parse_string());
   } else if (std::isalnum(this->current_char) || this->current_char == '_') {
@@ -158,13 +173,13 @@ Token *Lexer::next() {
              symbols.end()) {
     resultptr = new Token(this->parse_symbol());
   } else {
-    throw std::invalid_argument("Cannot parse: [" +
+    throw std::runtime_error("Cannot parse: [" +
                                 std::to_string(int(this->current_char)) + "]" +
                                 std::string(1, this->current_char));
   }
 
   if (resultptr) {
-    //std::cout << resultptr->type << ": " << resultptr->value << std::endl;
+    // std::cout << resultptr->type << ": " << resultptr->value << std::endl;
   }
 
   return resultptr;

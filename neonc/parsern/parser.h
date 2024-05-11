@@ -7,7 +7,7 @@
 
 class Parser {
 public:
-  Parser(Lexer *lexer_src);
+  Parser(Lexer *lexer_src, std::string file);
   Ast ast;
 
 private:
@@ -28,14 +28,14 @@ private:
   Statement parse_call();
   Statement parse_return();
   Statement parse_asmk();
-  Statement parse_assign();
+  Statement parse_declaration();
   Expression *parse_expression();
 
-  ProcSetup procsetup;
-
+  std::string file;
   std::vector<Token *> tokens;
   uint_fast64_t index = 0;
   uint size;
+  std::vector<std::string> specifiers;
   Token *current_token;
 };
 

@@ -1,12 +1,20 @@
 #include "parser.h"
+#include <algorithm>
 #include <cassert>
-#include <iostream>
+#include <cstdio>
+#include <memory>
 #include <stdexcept>
 
-Parser::Parser(Lexer *lexer_src) {
+std::vector<std::string> keywords = {"ret", "asm"};
+std::vector<std::string> specs = {"public", "private", "extern", "intern"};
+
+Statement parse_upcall(std::vector<Token *> btokens);
+
+Parser::Parser(Lexer *lexer_src, std::string file) {
   this->tokens = lexer_src->tokens;
   this->current_token = this->tokens.at(0);
   this->size = this->tokens.size();
+  this->file = file;
   while (this->index < this->size) {
     this->next();
   }
@@ -103,10 +111,13 @@ std::vector<Token *> Parser::between(TokenType type1, TokenType type2,
 
 void Parser::parse_proc() {
   this->eat();
-  this->procsetup = ProcSetup{};
+  StateSetup setup = StateSetup{.specifiers = this->specifiers};
+  this->specifiers.clear();
+
   std::string type =
       between(TokenType::L_BRACK, TokenType::R_BRACK).at(0)->value;
   std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+
   std::vector<Parameter> parameters;
   this->eat("", TokenType::L_PAREN);
   for (int par = 1; par > 0;) {
@@ -120,37 +131,49 @@ void Parser::parse_proc() {
       par++;
       this->eat();
     }
-    this->eat("", TokenType::DOLLAR);
-    std::string type = this->eat("", TokenType::IDENTIFIER)->value;
-    std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+    if (this->check("", TokenType::DOT) &&
+        this->peek()->type == TokenType::DOT &&
+        this->peek(2)->type == TokenType::DOT) {
+          // Variadic
+          this->eat(); this->eat(); this->eat();
+          parameters.push_back({.name = "...", .type = "variadic"});
+    } else {
+      this->eat("", TokenType::DOLLAR);
+      std::string type = this->eat("", TokenType::IDENTIFIER)->value;
+      std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+      parameters.push_back({.name = name, .type = type});
+    }
     if (this->check("", TokenType::COMMA)) {
       this->eat();
     }
-    parameters.push_back({.name = name, .type = type});
   }
-  this->eat("", TokenType::L_BRACE);
   std::vector<Statement> statements;
-  for (int par = 1; par > 0;) {
-    if (this->check("", TokenType::R_BRACE)) {
-      par--;
-      this->eat();
-      if (par < 1) {
-        break;
+  if (!this->check(";", TokenType::SEMICOLON)) {
+    this->eat("", TokenType::L_BRACE);
+    for (int par = 1; par > 0;) {
+      if (this->check("", TokenType::R_BRACE)) {
+        par--;
+        this->eat();
+        if (par < 1) {
+          break;
+        }
+      } else if (this->check("", TokenType::R_BRACK)) {
+        par++;
+        this->eat();
       }
-    } else if (this->check("", TokenType::R_BRACK)) {
-      par++;
-      this->eat();
+      Statement stat = this->parse_statement();
+      if (stat.type >= 0) {
+        statements.push_back(stat);
+      }
     }
-    Statement stat = this->parse_statement();
-    if (stat.type >= 0) {
-      statements.push_back(stat);
-    }
+  } else {
+    this->eat();
   }
   this->ast.procedures.push_back({.name = name,
                                   .type = type,
                                   .parameters = parameters,
                                   .statements = statements,
-                                  .setup = procsetup});
+                                  .setup = setup});
 }
 
 OpType parse_operator(char oper) {
@@ -159,7 +182,7 @@ OpType parse_operator(char oper) {
   } else if (oper == '-') {
     return OpType::SUB;
   }
-  return ADD;
+  return (OpType)(-1);
 }
 
 ValType parse_type(Token *token) {
@@ -169,17 +192,22 @@ ValType parse_type(Token *token) {
     return ValType::OBJECT;
   } else if (token->type == TokenType::STRING) {
     return ValType::STR;
+  } else if (token->type == TokenType::CHAR) {
+    return ValType::CH;
   }
   return ValType::OBJECT;
 }
 
 Expression *parse_exp_term(std::vector<Token *> tokens) {
   Expression *exp = new Expression();
-  //if (tokens.at(0)->type == TokenType::IDENTIFIER && tokens.at(1)->type == TokenType::L_PAREN) {
-  //  Value *value = new Value();
-  //  value->type = ValType::PCALL;
-  //}
-  if (tokens.size() == 1) {
+  if (tokens.size() >= 2 && tokens.at(0)->type == TokenType::IDENTIFIER &&
+      tokens.at(1)->type == TokenType::L_PAREN) {
+    Value *value = new Value();
+    value->type = ValType::PCALL;
+    value->stat = new Statement(parse_upcall(tokens));
+    value->value = "x";
+    exp->value = value;
+  } else if (tokens.size() == 1) {
     Value *value = new Value();
     value->type = parse_type(tokens.at(0));
     value->value = tokens.at(0)->value;
@@ -246,11 +274,13 @@ Statement Parser::parse_return() {
 }
 
 Statement Parser::parse_asmk() {
-  AsmStat *asmstat = new AsmStat();
+  std::unique_ptr<AsmStat> asmstat(new AsmStat());
   Expression *value = this->parse_expression();
-  assert(value->value && value->value->type == ValType::STR);
-  asmstat->code = value->value->value;
-  return {.type = StatType::ASM, .asmst = asmstat};
+  std::string val = value->value->value;
+  assert(value && value->value && value->value->type == ValType::STR);
+  asmstat->code = val;
+
+  return {.type = StatType::ASM, .asmst = asmstat.release()};
 }
 
 Statement Parser::parse_keyword() {
@@ -258,16 +288,17 @@ Statement Parser::parse_keyword() {
   if (keyword == "ret") {
     return this->parse_return();
   } else if (keyword == "asm") {
-    return this->parse_asmk();
+    Statement asmpk = this->parse_asmk();
+    return asmpk;
   }
   return {};
 }
 
 void Parser::parse_opt() {
   std::string optval = this->eat("", TokenType::IDENTIFIER)->value;
-  if (optval == "pub") {
-    this->procsetup.pubscope = true;
-  }
+  // if (optval == "pub") {
+  //   this->statesetup.pubscope = true;
+  // }
 }
 
 void Parser::parse_conn() {
@@ -287,16 +318,17 @@ void Parser::parse_setup() {
     this->parse_opt();
   } else if (na == "conn") {
     this->parse_conn();
-  } else if (na == "ct_def") {
+  } else if (na == "define") {
     this->parse_ctdef();
   }
 }
 
-Statement Parser::parse_call() {
+Statement parse_upcall(std::vector<Token *> btokens) {
   std::vector<Expression *> args;
-  std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+  std::string name = btokens.at(0)->value;
+  btokens.erase(btokens.begin());
   std::vector<Token *> tokens =
-      this->between(TokenType::L_PAREN, TokenType::R_PAREN);
+      scoped_between(TokenType::L_PAREN, TokenType::R_PAREN, btokens);
   std::vector<Token *> ctoks;
   for (Token *tok : tokens) {
     if (tok->type == TokenType::COMMA) {
@@ -310,23 +342,32 @@ Statement Parser::parse_call() {
   if (!ctoks.empty()) {
     args.push_back(parse_exp_term(ctoks));
   }
-  if (this->check(";", TokenType::SEMICOLON)) {this->eat("", TokenType::SEMICOLON);}
   return {.type = StatType::CALL,
           .callst = new CallStat({.name = name, .arguments = args})};
 }
 
-Statement Parser::parse_assign() {
+Statement Parser::parse_call() {
+  return parse_upcall(this->between((TokenType)(-1), TokenType::SEMICOLON));
+}
+
+Statement Parser::parse_declaration() {
+  StateSetup setup = {.specifiers = this->specifiers};
+  this->specifiers.clear();
+  this->eat();
   this->eat("$", TokenType::DOLLAR);
   std::string type = this->eat("", TokenType::IDENTIFIER)->value;
   std::string name = this->eat("", TokenType::IDENTIFIER)->value;
   this->eat("=", TokenType::ASSIGN);
-  Expression *exp = this->parse_expression();
-  
+  Expression *express = this->parse_expression();
+  return {.type = StatType::DECL,
+          .declst = new DeclStat(
+              {.dest = name, .type = type, .setup = setup, .src = express})};
 }
 
 Statement Parser::parse_statement() {
-  if (this->check("%", TokenType::OPERATOR)) {
-    this->eat();
+  if (this->check("", TokenType::IDENTIFIER) &&
+      (std::find(keywords.begin(), keywords.end(),
+                 this->current_token->value) != keywords.end())) {
     return this->parse_keyword();
   } else if (this->check("#", TokenType::HASH)) {
     this->eat();
@@ -334,22 +375,29 @@ Statement Parser::parse_statement() {
   } else if (this->check("", TokenType::IDENTIFIER) &&
              this->peek()->type == TokenType::L_PAREN) {
     return this->parse_call();
-  } else if (this->check("$", TokenType::DOLLAR) &&
-             this->peek()->type == TokenType::IDENTIFIER) {
-    this->parse_assign();
+  } else if (this->check("let", TokenType::IDENTIFIER) &&
+             this->peek()->type == TokenType::DOLLAR &&
+             this->peek(2)->type == TokenType::IDENTIFIER) {
+    return this->parse_declaration();
   } else {
-    throw std::invalid_argument("Cannot parse: " + this->current_token->value);
+    throw std::runtime_error("Cannot parse: " + this->current_token->value +
+                             " [in " + this->file + "] (in fn body)");
   }
   return {};
 }
 
 void Parser::next() {
-  if (this->check("proc", TokenType::IDENTIFIER)) {
+  if (this->check("", TokenType::IDENTIFIER) &&
+      (std::find(specs.begin(), specs.end(), this->current_token->value) !=
+       specs.end())) {
+    this->specifiers.push_back(this->eat()->value);
+  } else if (this->check("proc", TokenType::IDENTIFIER)) {
     this->parse_proc();
   } else if (this->check("#", TokenType::HASH)) {
     this->eat();
     this->parse_setup();
   } else {
-    throw std::invalid_argument("Cannot parse: " + this->current_token->value);
+    throw std::runtime_error("Cannot parse: " + this->current_token->value +
+                             " [in " + this->file + "] (in code)");
   }
 }

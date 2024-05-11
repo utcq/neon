@@ -5,9 +5,12 @@ EXEC := neon_0t
 
 CC := clang++
 CCFLAGS := \
-	-Wextra
+	-Wextra \
+	-Wno-missing-field-initializers
 
 SOURCES := $(shell find $(SRC_DIR) -name "*.cpp")
+
+ASMES := $(shell find .neon_tmp/ -name "*.s")
 
 all: build
 
@@ -18,6 +21,6 @@ test:
 	@./$(EXEC)
 
 assemble:
-	as std/mem.s -o mem.o
-	as .neon_tmp/mod_n0.s -o modn0.o
-	ld modn0.o mem.o -o modn0
+	as $(ASMES) -o tmp.o
+	@ld tmp.o -o tmpexec -lc -dynamic-linker /lib64/ld-linux-x86-64.so.2
+	@rm tmp.o

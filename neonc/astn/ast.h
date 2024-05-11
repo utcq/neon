@@ -5,9 +5,14 @@
 
 struct Statement;
 
-enum ValType { INT, OBJECT, STR, PCALL };
+enum ValType { INT, OBJECT, STR, CH, PCALL };
 enum OpType { ADD, SUB };
-enum StatType { CALL, ASSN, RET, ASM };
+enum StatType { CALL, DECL, RET, ASM };
+
+struct StateSetup {
+  uint src_id = 0;
+  std::vector<std::string> specifiers;
+};
 
 struct Value {
   ValType type;
@@ -27,8 +32,10 @@ struct CallStat {
   std::vector<Expression*> arguments;
 };
 
-struct AssnStat {
+struct DeclStat {
   std::string dest;
+  std::string type;
+  StateSetup setup;
   Expression *src;
 };
 
@@ -43,7 +50,7 @@ struct AsmStat {
 struct Statement {
   StatType type = (StatType)(-1);
   CallStat *callst;
-  AssnStat *assnst;
+  DeclStat *declst;
   RetStat *retst;
   AsmStat *asmst;
 };
@@ -53,17 +60,12 @@ struct Parameter {
   std::string type;
 };
 
-struct ProcSetup {
-  uint src_id = 0;
-  bool pubscope=false;
-};
-
 struct Procedure {
     std::string name;
     std::string type;
     std::vector<Parameter> parameters;
     std::vector<Statement> statements;
-    ProcSetup setup;
+    StateSetup setup;
 };
 
 struct Definition {
