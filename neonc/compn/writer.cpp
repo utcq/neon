@@ -90,9 +90,7 @@ void Writer::function_prologue() {
   this->freewrite("sub rsp, @STACK_SIZE");
 }
 
-void Writer::function_epilogue() {
-  this->freewrite("leave");
-}
+void Writer::function_epilogue() { this->freewrite("leave"); }
 
 void Writer::replace_free(std::string from, std::string to) {
   std::string new_asm_text = this->asm_text.str();
@@ -112,7 +110,8 @@ void Writer::move(std::string dst_register, std::string src_register) {
 
 void Writer::move(std::string dst_register, std::string src_label, uint size) {
   Translation dstt = translate_insword("mov", dst_register, size);
-  this->asm_text << "\t" << dstt.mnemonic << " " << dstt.reg_sz << ", OFFSET " << src_label << "\n";
+  this->asm_text << "\t" << dstt.mnemonic << " " << dstt.reg_sz << ", OFFSET "
+                 << src_label << "\n";
 }
 
 void Writer::move(std::string dst_register, int64_t primitive) {
@@ -121,8 +120,9 @@ void Writer::move(std::string dst_register, int64_t primitive) {
 
 void Writer::move(Pointer *dst_ptr, std::string src_register, uint size) {
   Translation srct = translate_insword("mov", src_register, size);
-  this->asm_text << "\t" << srct.mnemonic << " [" << dst_ptr->reg << std::showpos
-                 << dst_ptr->offset << "], " << srct.reg_sz << "\n";
+  this->asm_text << "\t" << srct.mnemonic << " [" << dst_ptr->reg
+                 << std::showpos << dst_ptr->offset << "], " << srct.reg_sz
+                 << "\n";
 }
 
 void Writer::move(std::string dst_register, Pointer *src_ptr, uint size) {
@@ -141,7 +141,9 @@ void Writer::pop(std::string dst_register) {
 
 void Writer::ret() { this->asm_text << "\tret\n"; }
 
-void Writer::call(std::string name) { this->asm_text << "\tcall " << name << "\n"; }
+void Writer::call(std::string name) {
+  this->asm_text << "\tcall " << name << "\n";
+}
 
 // String Utils
 void small_replace(std::string &str, const std::string &from,

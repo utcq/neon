@@ -37,6 +37,7 @@ private:
   uint size;
   std::vector<std::string> specifiers;
   Token *current_token;
+  ParserError *error;
 };
 
 #endif

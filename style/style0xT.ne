@@ -4,14 +4,9 @@
 extern proc [void] printf($str fmt, ...);
 extern proc [int] strlen($str str);
 
-proc [int] add($int a, $int b) {
-    let $int sum = a + b;
-    ret sum;
-}
-
 proc [int] main() {
-    let $u64 strc = "Hello\n";
+    let $str strc = "Hello";
     let $int length = strlen(strc);
-    printf("L: %d\n", length);
+    printf("S: %s\nL: %d\n", strc, length);
     ret 0;
 }

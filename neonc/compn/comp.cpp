@@ -17,14 +17,20 @@ bool create_folder(const std::string &path) {
   return mkdir(path.c_str(), 0755) == 0 || errno == EEXIST;
 }
 
-Compiler::Compiler(Ast *ast_ref, uint tmp_obj_n, Scope *scope) {
+Compiler::Compiler(Ast *ast_ref, std::string path, uint tmp_obj_n, Scope *scope, CompilerError *perror) {
   create_folder(".neon_tmp");
   this->emit_path = ".neon_tmp/mod_n" + std::to_string(tmp_obj_n) + ".s";
   this->writer = new Writer(this->emit_path);
+  this->path = path;
   if (!scope) {
     this->scope = new Scope();
   } else {
     this->scope = scope;
+  }
+  if (!perror) {
+    this->error = new CompilerError();
+  } else {
+    this->error = perror;
   }
   this->mod_id = tmp_obj_n;
   this->ext_id = this->mod_id;
@@ -33,6 +39,9 @@ Compiler::Compiler(Ast *ast_ref, uint tmp_obj_n, Scope *scope) {
                            this->ast->ct_definitions.begin(),
                            this->ast->ct_definitions.end());
   this->emit_assembly();
+  if (!perror) {
+    delete this->error;
+  }
 }
 
 Var *Compiler::resolve_var(std::string name) {
@@ -41,7 +50,8 @@ Var *Compiler::resolve_var(std::string name) {
       return var;
     }
   }
-  throw std::runtime_error("Cannot find variable: " + name);
+  this->error->VariableNotFound(name,this->path);
+  return nullptr;
 }
 
 Procedure *Compiler::resolve_proc(std::string name, bool mand) {
@@ -50,13 +60,13 @@ Procedure *Compiler::resolve_proc(std::string name, bool mand) {
       if (proc.setup.src_id != this->mod_id &&
           std::find(proc.setup.specifiers.begin(), proc.setup.specifiers.end(),
                     "public") == proc.setup.specifiers.end()) {
-        throw std::runtime_error("Cannot access private procedure: " + name);
+        this->error->PrivateProcedure(name, this->path);
       }
       return new Procedure(proc);
     }
   }
   if (mand) {
-    throw std::runtime_error("Cannot find procedure: " + name);
+    this->error->ProcedureNotFound(name, this->path);
   }
   return nullptr;
 }
@@ -71,13 +81,13 @@ uint Compiler::resolve_size(std::string type) {
       return std::stoul(def.value);
     }
   }
-  throw std::runtime_error("Cannot find type size: [definition: " + extend_def +
-                           "]");
+  this->error->TypeResolveError(type, extend_def, this->path);
+  return NONE;
 }
 
 uint Compiler::emit_binop(OpType oper, uint size1, uint size2) {
   if (size1 == NONE || size2 == NONE) {
-    throw std::runtime_error("Invalid operation");
+    throw std::runtime_error("[UNHANDLED] Invalid operation");
   }
   switch (oper) {
   case OpType::ADD: {
@@ -89,11 +99,10 @@ uint Compiler::emit_binop(OpType oper, uint size1, uint size2) {
     break;
   }
   default: {
-    throw std::runtime_error("Invalid operation");
+    throw std::runtime_error("[UNHANDLED] Invalid operation");
     break;
   }
   }
-
   if (size1 > size2) {
     return size1;
   }
@@ -130,6 +139,7 @@ uint Compiler::emit_expression(Expression *exp, bool first) {
         return DWORD;
       } else {
         Var *var = this->resolve_var(exp->value->value);
+        if (!var) { return NONE; }
         this->writer->move(dest, new Pointer({RBP, var->stack_offset}),
                            var->size);
         return var->size;
@@ -155,6 +165,7 @@ uint Compiler::emit_expression(Expression *exp, bool first) {
 }
 
 void Compiler::emit_return(RetStat *stat) {
+  if (!stat->value){return;}
   this->emit_expression(stat->value);
 }
 
@@ -174,6 +185,7 @@ void Compiler::emit_declaration(DeclStat *stat) {
 
 uint Compiler::emit_call(CallStat *stat) {
   Procedure *proc = this->resolve_proc(stat->name);
+  if (!proc) { return NONE; } 
   for (int i = stat->arguments.size(); i > 0; i--) {
     uint size = this->emit_expression(stat->arguments[i - 1]);
     this->writer->move(regs_ord[i - 1], RAX);
@@ -197,8 +209,10 @@ void Compiler::emit_asmkw(AsmStat *stat) {
         i++;
       }
       i++;
+      Var *rs = this->resolve_var(val);
+      if (!rs) { return; }
       coden +=
-          "[rbp" + std::to_string(this->resolve_var(val)->stack_offset) + "]";
+          "[rbp" + std::to_string(rs->stack_offset) + "]";
       if (i < (int)code.size()) {
         coden.push_back(code.at(i));
       }
@@ -237,7 +251,8 @@ void Compiler::emit_statement(Statement *stat) {
 void Compiler::emit_procedure(Procedure *proc) {
   proc->setup.src_id = this->mod_id;
   if (this->resolve_proc(proc->name, false) != nullptr) {
-    throw std::runtime_error("Procedure redefinition: " + proc->name);
+    this->error->ProcedureRedefined(proc->name, this->path);
+    return;
   }
   this->scope->procs.push_back(*proc);
   this->scope->vars.clear();
@@ -253,6 +268,8 @@ void Compiler::emit_procedure(Procedure *proc) {
 
   this->writer->label(proc->name);
   this->writer->function_prologue();
+
+  this->resolve_size(proc->type);
 
   int stack_offset = 0;
   uint param_size = 0;
@@ -279,7 +296,7 @@ void Compiler::emit_procedure(Procedure *proc) {
 void Compiler::connect_module(std::string path) {
   Parser *rparser = process_file(path);
   this->ext_id++;
-  Compiler *rcompiler = new Compiler(&rparser->ast, this->ext_id, this->scope);
+  Compiler *rcompiler = new Compiler(&rparser->ast, path, this->ext_id, this->scope, this->error);
   this->ext_id = rcompiler->ext_id;
 }
 

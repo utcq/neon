@@ -1,6 +1,7 @@
 #ifndef COMPN_COMP_H
 #define COMPN_COMP_H
 
+#include "../handler/handler.h"
 #include "../astn/ast.h"
 #include "../comn/token.h"
 #include "common.h"
@@ -20,7 +21,7 @@ struct Scope {
 
 class Compiler {
 public:
-  Compiler(Ast *ast_ref, uint tmp_obj_n = 0, Scope *scope=NULL);
+  Compiler(Ast *ast_ref, std::string path, uint tmp_obj_n = 0, Scope *scope=NULL, CompilerError *perror=NULL);
   std::string emit_path;
   uint ext_id=0;
 
@@ -49,6 +50,8 @@ private:
   Ast *ast;
   Scope *scope;
   uint mod_id;
+  CompilerError *error;
+  std::string path;
 };
 
 void small_replace(std::string &str, const std::string &from,

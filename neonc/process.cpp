@@ -1,12 +1,12 @@
-#include "compn/comp.h"
+#include "handler/handler.h"
 #include "lexern/lexer.h"
 #include "parsern/parser.h"
 
 #include <cstring>
 #include <fstream>
-#include <stdexcept>
 
 Parser *process_file(std::string path) {
+  FileError *error = new FileError();
   std::ifstream file(path);
   if (file) {
     file.seekg(0, std::ios::end);
@@ -18,9 +18,11 @@ Parser *process_file(std::string path) {
     std::string xty = std::string(buffer, len); // Workaround for read problems
     const char *buff = xty.c_str();
 
-    Lexer *lexer = new Lexer(buff);
+    Lexer *lexer = new Lexer(buff,path);
     Parser *parser = new Parser(lexer,path);
     return parser;
   }
-  throw std::runtime_error("Missing file: " + path);
+  error->MissingFile(path);
+  delete error;
+  return nullptr;
 }

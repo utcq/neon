@@ -2,7 +2,6 @@
 #include <cctype>
 #include <map>
 #include <set>
-#include <stdexcept>
 #include <string>
 #include <vector>
 
@@ -15,12 +14,13 @@ std::map<std::string, TokenType> symbols = {
     {")", TokenType::R_PAREN}, {"[", TokenType::L_BRACK},
     {"]", TokenType::R_BRACK}, {",", TokenType::COMMA},
     {"{", TokenType::L_BRACE}, {"}", TokenType::R_BRACE},
-    {"#", TokenType::HASH}, {".", TokenType::DOT}};
+    {"#", TokenType::HASH},    {".", TokenType::DOT}};
 
-Lexer::Lexer(const char *source) {
+Lexer::Lexer(const char *source, std::string file) {
   this->source = (std::string(source) + " ");
   this->current_char = source[0];
-  // std::cout << (source) << std::endl;
+  this->position = {.file = file};
+  this->error = new LexerError();
   this->size = this->source.size() - 2;
   while (this->current_char && this->offset < this->size) {
     Token *tokref = this->next();
@@ -32,41 +32,46 @@ Lexer::Lexer(const char *source) {
 
 void Lexer::advance(int by) {
   this->offset += by;
+  this->position.col += by;
   this->current_char = this->source[offset];
 }
 
 Token Lexer::parse_digit() {
   std::string value;
+  Pos pos = (this->position);
   while (std::isdigit(this->current_char)) {
     value.push_back(this->current_char);
     this->advance();
   }
-  return {.type = TokenType::INTEGER, .value = value};
+  return {.type = TokenType::INTEGER, .value = value, .position=pos};
 }
 
 Token Lexer::parse_xdigit() {
   std::string value;
+  Pos pos = (this->position);
   this->advance(2);
   while (std::isxdigit(this->current_char)) {
     value.push_back(this->current_char);
     this->advance();
   }
   value = std::to_string(std::stoll(value, 0, 16)); // hex to dec
-  return {.type = TokenType::INTEGER, .value = value};
+  return {.type = TokenType::INTEGER, .value = value, .position=pos};
 }
 
 Token Lexer::parse_identifier() {
   std::string value;
+  Pos pos = (this->position);
   while (std::isalnum(this->current_char) || this->current_char == '.' ||
          this->current_char == '_') {
     value.push_back(this->current_char);
     this->advance();
   }
-  return {.type = TokenType::IDENTIFIER, .value = value};
+  return {.type = TokenType::IDENTIFIER, .value = value, .position=pos};
 }
 
 Token Lexer::parse_operator() {
   std::string value;
+  Pos pos = (this->position);
   value.push_back(this->current_char);
   this->advance();
   while (operators.find(value) != operators.end()) {
@@ -75,36 +80,43 @@ Token Lexer::parse_operator() {
   }
   value.pop_back();
   this->advance(-1);
-  return {.type = TokenType::OPERATOR, .value = value};
+  return {.type = TokenType::OPERATOR, .value = value, .position=pos};
 }
 
 Token Lexer::parse_string() {
   std::string value;
+  Pos pos = (this->position);
   this->advance();
   while (this->current_char != '"') {
     value.push_back(this->current_char);
     this->advance();
   }
   this->advance();
-  return {.type = TokenType::STRING, .value = value};
+  return {.type = TokenType::STRING, .value = value, .position=pos};
 }
 
 Token Lexer::parse_char() {
   std::string value;
+  Pos pos = (this->position);
   this->advance();
   while (this->current_char != '\'') {
     value.push_back(this->current_char);
     this->advance();
   }
   this->advance();
-  if (value == "\\n") { value = std::to_string('\n');}
-  else if (value == "\\0") { value = std::to_string('\0');}
-  else { value = std::to_string((int)value.at(0)); }
-  return {.type = TokenType::CHAR, .value = value};
+  if (value == "\\n") {
+    value = std::to_string('\n');
+  } else if (value == "\\0") {
+    value = std::to_string('\0');
+  } else {
+    value = std::to_string((int)value.at(0));
+  }
+  return {.type = TokenType::CHAR, .value = value, .position=pos};
 }
 
 Token Lexer::parse_symbol() {
   std::string value;
+  Pos pos = (this->position);
   value.push_back(this->current_char);
   this->advance();
   while (symbols.find(value) != symbols.end()) {
@@ -113,7 +125,7 @@ Token Lexer::parse_symbol() {
   }
   value.pop_back();
   this->advance(-1);
-  return {.type = symbols.find(value)->second, .value = value};
+  return {.type = symbols.find(value)->second, .value = value, .position=pos};
 }
 
 char Lexer::peek(int by) { return this->source[this->offset + by]; }
@@ -121,6 +133,10 @@ char Lexer::peek(int by) { return this->source[this->offset + by]; }
 void Lexer::skip_ws() {
   while (this->current_char == ' ' || this->current_char == '\n' ||
          this->current_char == '\t') {
+    if (this->current_char == '\n') {
+      this->position.line++;
+      this->position.col = 0;
+    }
     this->advance();
   }
 }
@@ -158,7 +174,7 @@ Token *Lexer::next() {
       resultptr = new Token(temp);
     } else {
       resultptr = new Token(
-          {.type = TokenType::OPERATOR, .value = std::string(1, pon)});
+          {.type = TokenType::OPERATOR, .value = std::string(1, pon), .position=this->position});
     }
   } else if (this->current_char == '\'') {
     resultptr = new Token(this->parse_char());
@@ -173,13 +189,8 @@ Token *Lexer::next() {
              symbols.end()) {
     resultptr = new Token(this->parse_symbol());
   } else {
-    throw std::runtime_error("Cannot parse: [" +
-                                std::to_string(int(this->current_char)) + "]" +
-                                std::string(1, this->current_char));
-  }
-
-  if (resultptr) {
-    // std::cout << resultptr->type << ": " << resultptr->value << std::endl;
+    this->error->UnknownSymbol(this->current_char, this->position);
+    this->advance();
   }
 
   return resultptr;

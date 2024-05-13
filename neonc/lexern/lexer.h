@@ -1,14 +1,16 @@
 #ifndef LEXERN_LEXER_H
 #define LEXERN_LEXER_H
 
+#include "../handler/handler.h"
 #include "../comn/token.h"
 #include <cstdint>
 #include <sys/types.h>
 #include <vector>
 
+
 class Lexer {
 public:
-  Lexer(const char *source);
+  Lexer(const char *source, std::string file);
   std::vector<Token *> tokens;
 
 private:
@@ -29,6 +31,8 @@ private:
   uint_fast64_t offset = 0;
   uint size;
   char current_char = 1;
+  Pos position;
+  LexerError *error;
 };
 
 #endif
