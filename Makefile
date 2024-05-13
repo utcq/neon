@@ -3,10 +3,13 @@ SRC_DIR := neonc
 
 EXEC := neon_0t
 
+FASTFLAG := -Ofast
+
 CC := clang++
 CCFLAGS := \
 	-Wextra \
-	-Wno-missing-field-initializers
+	-Wno-missing-field-initializers \
+	$(FASTFLAG)
 
 SOURCES := $(shell find $(SRC_DIR) -name "*.cpp")
 
