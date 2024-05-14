@@ -252,7 +252,7 @@ Expression *parse_exp_term(std::vector<Token *> tokens, ParserError *err) {
         if (tokens.size() == 2) {
           assert(tokens.at(i + 1)->value.at(0) == '+' ||
                  tokens.at(i + 1)->value.at(0) == '-');
-          OpType oper = parse_operator(tokens.at(i + 1)->value);
+          OpType oper = parse_operator(std::string(1,tokens.at(i + 1)->value.at(0)));
           if (oper < 0) {
             err->UnknownOperator(tokens.at(i + 1));
           }

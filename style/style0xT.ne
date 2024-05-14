@@ -8,5 +8,5 @@ proc [int] main() {
     let $str strc = "Hello";
     let $int length = strlen(strc);
     printf("S: %s\nL: %d\n", strc, length);
-    ret 0;
+    ret 1+2;
 }

@@ -3,7 +3,7 @@ SRC_DIR := neonc
 
 EXEC := neon_0t
 
-FASTFLAG := -Ofast
+FASTFLAG := -Ofast -Os -flto
 
 CC := clang++
 CCFLAGS := \

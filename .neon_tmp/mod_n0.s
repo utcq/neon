@@ -26,7 +26,9 @@ main:
 	mov rdi, rax
 	xor rax, rax
 	call printf
-	mov rax, +0
+	mov rax, +1
+	mov rbx, +2
+	add rax,rbx
 	leave
 	ret
 
