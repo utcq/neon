@@ -4,10 +4,12 @@
 #include <vector>
 
 struct Statement;
+struct Reference;
+struct Dereference;
 
-enum ValType { INT, OBJECT, STR, CH, PCALL };
+enum ValType { INT, OBJECT, STR, CH, PCALL, REFERENCE, DEREFERENCE };
 enum OpType { ADD, SUB };
-enum StatType { CALL, DECL, RET, ASM };
+enum StatType { CALL, DECL, RET, ASM, ASS };
 
 struct StateSetup {
   uint src_id = 0;
@@ -18,6 +20,16 @@ struct Value {
   ValType type;
   std::string value;
   Statement *stat;
+  Reference *ref;
+  Dereference *deref;
+};
+
+struct Reference {
+  Value *value;
+};
+
+struct Dereference {
+  Value *value;
 };
 
 struct Expression {
@@ -47,12 +59,18 @@ struct AsmStat {
   std::string code;
 };
 
+struct AssStat {
+  std::string name;
+  Expression *value;
+};
+
 struct Statement {
   StatType type = (StatType)(-1);
   CallStat *callst;
   DeclStat *declst;
   RetStat *retst;
   AsmStat *asmst;
+  AssStat *assst;
 };
 
 struct Parameter {

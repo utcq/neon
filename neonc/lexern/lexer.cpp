@@ -28,6 +28,7 @@ Lexer::Lexer(const char *source, std::string file) {
       this->tokens.push_back(tokref);
     }
   }
+  delete this->error;
 }
 
 void Lexer::advance(int by) {
@@ -176,15 +177,16 @@ Token *Lexer::next() {
       resultptr = new Token(
           {.type = TokenType::OPERATOR, .value = std::string(1, pon), .position=this->position});
     }
-  } else if (this->current_char == '\'') {
+  }
+  else if (operators.find(std::string(1, this->current_char)) !=
+             operators.end()) {
+    resultptr = new Token(this->parse_operator());
+  }  else if (this->current_char == '\'') {
     resultptr = new Token(this->parse_char());
   } else if (this->current_char == '"') {
     resultptr = new Token(this->parse_string());
   } else if (std::isalnum(this->current_char) || this->current_char == '_') {
     resultptr = new Token(this->parse_identifier());
-  } else if (operators.find(std::string(1, this->current_char)) !=
-             operators.end()) {
-    resultptr = new Token(this->parse_operator());
   } else if (symbols.find(std::string(1, this->current_char)) !=
              symbols.end()) {
     resultptr = new Token(this->parse_symbol());

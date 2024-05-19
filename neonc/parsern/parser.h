@@ -29,6 +29,7 @@ private:
   Statement parse_return();
   Statement parse_asmk();
   Statement parse_declaration();
+  Statement parse_assign();
   Expression *parse_expression();
 
   std::string file;

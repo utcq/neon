@@ -1,5 +1,6 @@
 #include "comp.h"
 #include "../process.h"
+#include "../ext/magic_enum/magic_enum.hpp"
 #include "common.h"
 #include <algorithm>
 #include <cctype>
@@ -153,6 +154,24 @@ uint Compiler::emit_expression(Expression *exp, bool first) {
       this->writer->move(dest, strname, DWORD);
       this->scope->str_index++;
       return DWORD;
+    } else if (exp->value->type == ValType::REFERENCE) {
+      if (exp->value->ref->value->type == ValType::OBJECT) {
+        Var *defck = this->resolve_var(exp->value->ref->value->value);
+        if (defck) {
+          this->writer->lea(dest, new Pointer({RBP, defck->stack_offset}));
+          return DWORD;
+        }
+      }
+      else if (exp->value->ref->value->type == ValType::INT) {
+        uint64_t val = std::stoull(exp->value->ref->value->value);
+        this->writer->lea(dest, val);
+      }
+      else {
+        throw std::runtime_error("Unsupported reference type");
+      }
+    }
+    else {
+      throw std::runtime_error("Invalid value");
     }
   } else if (exp->first && !exp->second) {
     this->emit_expression(exp->first, first);
@@ -224,6 +243,13 @@ void Compiler::emit_asmkw(AsmStat *stat) {
   this->writer->freewrite(coden);
 }
 
+void Compiler::emit_assign(AssStat *stat) {
+  Var *var = this->resolve_var(stat->name);
+  if (!var) { return; }
+  this->emit_expression(stat->value);
+  this->writer->move(new Pointer({RBP, var->stack_offset}), RAX, var->size);
+}
+
 void Compiler::emit_statement(Statement *stat) {
   switch (stat->type) {
   case StatType::RET: {
@@ -240,6 +266,10 @@ void Compiler::emit_statement(Statement *stat) {
   }
   case StatType::CALL: {
     this->emit_call(stat->callst);
+    break;
+  }
+  case StatType::ASS: {
+    this->emit_assign(stat->assst);
     break;
   }
   default: {

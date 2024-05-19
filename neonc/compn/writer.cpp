@@ -131,6 +131,15 @@ void Writer::move(std::string dst_register, Pointer *src_ptr, uint size) {
                  << src_ptr->reg << std::showpos << src_ptr->offset << "]\n";
 }
 
+void Writer::lea(std::string dst_register, Pointer *src_ptr) {
+  this->asm_text << "\tlea " << dst_register << ", [" << src_ptr->reg
+                 << std::showpos << src_ptr->offset << "]\n";
+}
+
+void Writer::lea(std::string dst_register, uint64_t address) {
+  this->asm_text << "\tlea " << dst_register << ", [" << address << "]\n";
+}
+
 void Writer::xorr(std::string dst_register, std::string src_register) {
   this->asm_text << "\txor " << dst_register << ", " << src_register << "\n";
 }

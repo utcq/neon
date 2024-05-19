@@ -1,10 +1,9 @@
 #include "parser.h"
+#include "../ext/magic_enum/magic_enum.hpp"
 #include <algorithm>
 #include <cassert>
 #include <cstdio>
 #include <memory>
-#include "../ext/magic_enum/magic_enum.hpp"
-
 
 std::vector<std::string> keywords = {"ret", "asm"};
 std::vector<std::string> specs = {"public", "private", "extern", "intern"};
@@ -37,18 +36,21 @@ void Parser::advance(int by) {
 Token *Parser::eat(std::string value, TokenType type) {
   if (type >= 0) {
     if (!value.empty()) {
-      if(this->current_token->type != type ||
-             this->current_token->value != value) {
-              this->error->UnexpectedToken(this->current_token, magic_enum::enum_name(type).data());
-             }
+      if (this->current_token->type != type ||
+          this->current_token->value != value) {
+        this->error->UnexpectedToken(this->current_token,
+                                     magic_enum::enum_name(type).data());
+      }
     } else {
       if (this->current_token->type != type) {
-        this->error->UnexpectedToken(this->current_token, magic_enum::enum_name(type).data());
+        this->error->UnexpectedToken(this->current_token,
+                                     magic_enum::enum_name(type).data());
       }
     }
   } else if (!value.empty()) {
     if (this->current_token->value != value) {
-      this->error->UnexpectedToken(this->current_token, magic_enum::enum_name(type).data());
+      this->error->UnexpectedToken(this->current_token,
+                                   magic_enum::enum_name(type).data());
     }
   }
   Token *ret = this->current_token;
@@ -64,12 +66,14 @@ bool Parser::check(std::string value, TokenType type) {
 Token *Parser::peek(int by) { return (this->tokens.at(this->index + by)); }
 
 std::vector<Token *> scoped_between(TokenType type1, TokenType type2,
-                                    std::vector<Token *> scope, ParserError *err) {
+                                    std::vector<Token *> scope,
+                                    ParserError *err) {
   int index = 0;
   std::vector<Token *> tokens;
   if (type1 > 0) {
     if (scope.at(0)->type != type1) {
-      err->UnexpectedToken(scope.at(index), magic_enum::enum_name(type1).data());
+      err->UnexpectedToken(scope.at(index),
+                           magic_enum::enum_name(type1).data());
     }
     index++;
   } else {
@@ -170,7 +174,10 @@ void Parser::parse_proc() {
   std::vector<Statement> statements;
   if (!this->check(";", TokenType::SEMICOLON)) {
     if (this->eat("", TokenType::L_BRACE)->type != TokenType::L_BRACE) {
-      while (!this->check("proc", TokenType::IDENTIFIER) && this->index < this->tokens.size()) {this->eat();}
+      while (!this->check("proc", TokenType::IDENTIFIER) &&
+             this->index < this->tokens.size()) {
+        this->eat();
+      }
     } else {
       for (int par = 1; par > 0;) {
         if (this->check("", TokenType::R_BRACE)) {
@@ -243,44 +250,74 @@ Expression *parse_exp_term(std::vector<Token *> tokens, ParserError *err) {
             std::vector<Token *>(tokens.begin() + i, tokens.end()), err);
         i += r_tokens.size() + 2;
         if (exp->first) {
-          exp->second = parse_exp_term(r_tokens,err);
+          exp->second = parse_exp_term(r_tokens, err);
         } else {
-          exp->first = parse_exp_term(r_tokens,err);
+          exp->first = parse_exp_term(r_tokens, err);
         }
-
       } else {
         if (tokens.size() == 2) {
-          assert(tokens.at(i + 1)->value.at(0) == '+' ||
-                 tokens.at(i + 1)->value.at(0) == '-');
-          OpType oper = parse_operator(std::string(1,tokens.at(i + 1)->value.at(0)));
-          if (oper < 0) {
-            err->UnknownOperator(tokens.at(i + 1));
+          if (tokens.at(i)->type == TokenType::OPERATOR &&
+              tokens.at(i)->value.at(0) == '&') {
+            Value *value = new Value();
+            value->type = ValType::REFERENCE;
+            Expression *xp = parse_exp_term({tokens.at(i + 1)}, err);
+            value->ref = new Reference({.value =
+              xp->value
+            });
+            exp->value = value;
+          } else if (tokens.at(i)->type == TokenType::OPERATOR &&
+                     tokens.at(i)->value.at(0) == '*') {
+            Value *value = new Value();
+            value->type = ValType::DEREFERENCE;
+            value->deref = new Dereference({.value =
+              parse_exp_term({tokens.at(i + 1)}, err)->first->value
+            });
+            exp->value = value;
+          } else {
+            assert(tokens.at(i + 1)->value.at(0) == '+' ||
+                   tokens.at(i + 1)->value.at(0) == '-');
+            OpType oper =
+                parse_operator(std::string(1, tokens.at(i + 1)->value.at(0)));
+            if (oper < 0) {
+              err->UnknownOperator(tokens.at(i + 1));
+            }
+            tokens.at(i + 1)->value.erase(0, 1);
+            exp->first = parse_exp_term({tokens.at(i)}, err);
+            exp->second = parse_exp_term({tokens.at(i + 1)}, err);
+            exp->oper = oper;
           }
-          tokens.at(i + 1)->value.erase(0, 1);
-          exp->first = parse_exp_term({tokens.at(i)},err);
-          exp->second = parse_exp_term({tokens.at(i + 1)},err);
-          exp->oper = oper;
           i += 2;
         } else if (tokens.size() == 3) {
-          OpType oper = parse_operator(tokens.at(i + 1)->value);
-          if (oper < 0) {
-            err->UnknownOperator(tokens.at(i + 1));
+            OpType oper = parse_operator(tokens.at(i + 1)->value);
+            if (oper < 0) {
+              err->UnknownOperator(tokens.at(i + 1));
+            }
+            exp->first = parse_exp_term({tokens.at(i)}, err);
+            exp->second = parse_exp_term({tokens.at(i + 2)}, err);
+            exp->oper = oper;
+            i += 3;
+        } else {
+          if (tokens.at(i)->type == TokenType::OPERATOR &&
+              tokens.at(i)->value == "&") {
+            Value *value = new Value();
+            value->type = ValType::REFERENCE;
+            value->value = tokens.at(i + 1)->value;
+            exp->value = value;
+            i += 2;
+          } else if (tokens.at(i)->type == TokenType::OPERATOR &&
+                     tokens.at(i)->value == "*") {
+            Value *value = new Value();
+            value->type = ValType::DEREFERENCE;
+            value->value = tokens.at(i + 1)->value;
+            exp->value = value;
+            i += 2;
           }
-          exp->first = parse_exp_term({tokens.at(i)},err);
-          exp->second = parse_exp_term({tokens.at(i + 2)},err);
-          exp->oper = oper;
-          i += 3;
         }
       }
     }
 
     // TODO: Implement: X + Y + Z [Polynomial]
   }
-
-  /*if (exp->second) {
-    std::cout << exp->first->value->value << " " << *(exp->oper) << " "
-              << exp->second->value->value << std::endl;
-  }*/
   return exp;
 }
 
@@ -379,7 +416,8 @@ Statement parse_upcall(std::vector<Token *> btokens, ParserError *err) {
 }
 
 Statement Parser::parse_call() {
-  return parse_upcall(this->between((TokenType)(-1), TokenType::SEMICOLON), this->error);
+  return parse_upcall(this->between((TokenType)(-1), TokenType::SEMICOLON),
+                      this->error);
 }
 
 Statement Parser::parse_declaration() {
@@ -394,6 +432,14 @@ Statement Parser::parse_declaration() {
   return {.type = StatType::DECL,
           .declst = new DeclStat(
               {.dest = name, .type = type, .setup = setup, .src = express})};
+}
+
+Statement Parser::parse_assign() {
+  std::string name = this->eat("", TokenType::IDENTIFIER)->value;
+  this->eat("=", TokenType::ASSIGN);
+  Expression *exp = this->parse_expression();
+  return {.type = StatType::ASS,
+          .assst = new AssStat({.name = name, .value = exp})};
 }
 
 Statement Parser::parse_statement() {
@@ -411,10 +457,16 @@ Statement Parser::parse_statement() {
              this->peek()->type == TokenType::DOLLAR &&
              this->peek(2)->type == TokenType::IDENTIFIER) {
     return this->parse_declaration();
+  } else if (this->check("", TokenType::IDENTIFIER) &&
+             this->peek()->type == TokenType::ASSIGN) {
+    return this->parse_assign();
   } else {
     this->error->UnknownStatement(this->current_token);
     uint line = this->current_token->position.line;
-    while (this->current_token->position.line == line && this->index < this->tokens.size()) { this->advance(); }
+    while (this->current_token->position.line == line &&
+           this->index < this->tokens.size()) {
+      this->advance();
+    }
   }
   return {};
 }
@@ -432,6 +484,9 @@ void Parser::next() {
   } else {
     this->error->UnknownWhat(this->current_token);
     uint line = this->current_token->position.line;
-    while (this->current_token->position.line == line && this->index < this->tokens.size()) { this->advance(); }
+    while (this->current_token->position.line == line &&
+           this->index < this->tokens.size()) {
+      this->advance();
+    }
   }
 }

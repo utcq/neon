@@ -31,6 +31,7 @@ LexerError::~LexerError() {
 
 void LexerError::UnknownSymbol(char symbol, Pos pos) {
     std::cerr << pos.file << ":" << pos.line << ":" << pos.col << ": [❓] Unknown Symbol: '" << symbol << "' \n";
+    print_line(pos.file, pos.line);
     this->err_flag = true;
 }
 

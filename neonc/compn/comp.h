@@ -37,6 +37,7 @@ public:
   void emit_declaration(DeclStat *stat);
   uint emit_call(CallStat *stat);
   void emit_asmkw(AsmStat *stat);
+  void emit_assign(AssStat *stat);
 
   void emit_statement(Statement *stat);
 
